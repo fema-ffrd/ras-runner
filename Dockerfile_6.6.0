@@ -1,8 +1,8 @@
-#Set up the environment to build the cc-ras-runner plugin
-FROM ghcr.io/usace-cloud-compute/cc-hdf5-ras-base:v1.0.0 as builder
+# Set up the environment to build the cc-ras-runner plugin
+FROM ghcr.io/usace-cloud-compute/cc-hdf5-ras-base:v1.0.0 AS builder
 
-
-#names specific to artifacts downloaded from cloud-wat-resources on the HEC Nexus.  Replace version number in all args. Currently available 610,631,641. -bbb 20240229
+# Names specific to artifacts downloaded from cloud-wat-resources on the HEC Nexus.
+# Replace version number in all args. Currently available 610, 631, 641.
 ARG RAS_DEPLOYMENT=EngineOnly
 ARG RAS_VERSION=HEC-RAS_660_Linux
 ARG RAS_ARCHIVE=${RAS_VERSION}_${RAS_DEPLOYMENT}.zip
@@ -14,44 +14,42 @@ ENV GOROOT=/go
 ENV GOPATH=/src/go
 ENV PATH=/go/bin:$PATH
 
-
-RUN wget ${NEXUS_RAS_URL} &&\ 
-    unzip ${RAS_ARCHIVE} &&\
-    mv /${RAS_VERSION}_${RAS_DEPLOYMENT}/libs /ras/libs &&\
-    mv /${RAS_VERSION}_${RAS_DEPLOYMENT}/bin /ras/bin &&\
-    chmod -R +x /ras/* &&\ 
-    wget https://go.dev/dl/go${GOVERSION}.${GOBINARCH}.tar.gz -P / &&\
-    tar -xvzf go${GOVERSION}.${GOBINARCH}.tar.gz -C / &&\
-    mkdir -p src/ras-runner 
+RUN mkdir -p /ras /src/ras-runner && \
+    wget "${NEXUS_RAS_URL}" -O "/${RAS_ARCHIVE}" && \
+    unzip "/${RAS_ARCHIVE}" -d / && \
+    mv "/${RAS_VERSION}_${RAS_DEPLOYMENT}/libs" /ras/libs && \
+    mv "/${RAS_VERSION}_${RAS_DEPLOYMENT}/bin" /ras/bin && \
+    chmod -R +x /ras/* && \
+    wget "https://go.dev/dl/go${GOVERSION}.${GOBINARCH}.tar.gz" -O "/go${GOVERSION}.${GOBINARCH}.tar.gz" && \
+    tar -xzf "/go${GOVERSION}.${GOBINARCH}.tar.gz" -C /
 
 COPY ./ /src/ras-runner
 
-RUN mv /src/ras-runner/runScripts/${RAS_VERSION}/* /src/ras-runner 
+RUN mv /src/ras-runner/runScripts/${RAS_VERSION}/* /src/ras-runner/
 
-RUN cd /src/ras-runner &&\
-    go mod tidy &&\
-    go build 
+RUN cd /src/ras-runner && \
+    go mod tidy && \
+    go build -o ras-runner
 
+FROM rockylinux:8 AS prod
 
-FROM rockylinux:8 as prod
 ARG HDF5_PREFIX=/usr/local/lib/hdf5
 ENV PATH=/hdf/bin:/ras/bin:/ras:$PATH
 ENV LD_LIBRARY_PATH=${HDF5_PREFIX}/lib
 
 RUN mkdir -p /sim/model
 
-#RAS Binaries
+# RAS binaries
 COPY --from=builder /ras /ras
-#cc-ras-runner binary
+# cc-ras-runner binary
 COPY --from=builder /src/ras-runner/ras-runner /ras/ras-runner
-#hdf binaries
+# hdf binaries
 COPY --from=builder /hdf /hdf
-#geom preproc script
+# geom preproc script
 COPY --from=builder /src/ras-runner/run-geom-preproc.sh /ras/
-#model run script
+# model run script
 COPY --from=builder /src/ras-runner/run-model.sh /ras/
 
-RUN chmod +x /ras/run-model.sh &&\
-    chmod +x /ras/run-geom-preproc.sh
+RUN chmod +x /ras/run-model.sh /ras/run-geom-preproc.sh /ras/ras-runner
 
 CMD ["/ras/ras-runner"]
