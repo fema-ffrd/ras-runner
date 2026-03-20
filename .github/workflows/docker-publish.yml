@@ -60,7 +60,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          file: ./Dockerfile_6.6.0
+          file: ./Dockerfile_6.4.0
           platforms: ${{ matrix.platform }}
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
@@ -83,6 +83,6 @@ jobs:
           IMAGE=${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
 
           docker buildx imagetools create \
-            -t $IMAGE:latest \
-            $IMAGE:latest-amd64 \
-            $IMAGE:latest-arm64
+            -t $IMAGE:latest-641 \
+            $IMAGE:latest-641-amd64 \
+            $IMAGE:latest-641-arm64
