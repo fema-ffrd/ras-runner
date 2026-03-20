@@ -1,18 +1,20 @@
-# Set up the environment to build the cc-ras-runner plugin
 FROM ghcr.io/usace-cloud-compute/cc-hdf5-ras-base:v1.0.0 AS builder
 
-# Names specific to artifacts downloaded from cloud-wat-resources on the HEC Nexus.
-# Replace version number in all args. Currently available 610, 631, 641.
 ARG RAS_DEPLOYMENT=EngineOnly
 ARG RAS_VERSION=HEC-RAS_660_Linux
 ARG RAS_ARCHIVE=${RAS_VERSION}_${RAS_DEPLOYMENT}.zip
 ARG NEXUS_RAS_URL=https://www.hec.usace.army.mil/nexus/repository/cloud-wat-resources/ras/${RAS_ARCHIVE}
 ARG GOVERSION=1.24.12
 ARG GOBINARCH=linux-amd64
+ARG HDF5_PREFIX=/usr/local/lib/hdf5
 
 ENV GOROOT=/go
 ENV GOPATH=/src/go
 ENV PATH=/go/bin:$PATH
+ENV CGO_ENABLED=1
+ENV CGO_CFLAGS=-I${HDF5_PREFIX}/include
+ENV CGO_LDFLAGS=-L${HDF5_PREFIX}/lib
+ENV LD_LIBRARY_PATH=${HDF5_PREFIX}/lib
 
 RUN mkdir -p /ras /src/ras-runner && \
     wget "${NEXUS_RAS_URL}" -O "/${RAS_ARCHIVE}" && \
@@ -23,13 +25,19 @@ RUN mkdir -p /ras /src/ras-runner && \
     wget "https://go.dev/dl/go${GOVERSION}.${GOBINARCH}.tar.gz" -O "/go${GOVERSION}.${GOBINARCH}.tar.gz" && \
     tar -xzf "/go${GOVERSION}.${GOBINARCH}.tar.gz" -C /
 
+RUN echo "CGO_CFLAGS=$CGO_CFLAGS" && \
+    echo "CGO_LDFLAGS=$CGO_LDFLAGS" && \
+    ls -la ${HDF5_PREFIX}/include && \
+    ls -la ${HDF5_PREFIX}/lib && \
+    test -f ${HDF5_PREFIX}/include/hdf5.h
+
 COPY ./ /src/ras-runner
 
 RUN mv /src/ras-runner/runScripts/${RAS_VERSION}/* /src/ras-runner/
 
 RUN cd /src/ras-runner && \
     go mod tidy && \
-    go build -o ras-runner
+    go build -x -o ras-runner
 
 FROM rockylinux:8 AS prod
 
