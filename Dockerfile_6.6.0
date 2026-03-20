@@ -1,3 +1,4 @@
+# Set up the environment to build the cc-ras-runner plugin
 FROM ghcr.io/usace-cloud-compute/cc-hdf5-ras-base:v1.0.0 AS builder
 
 ARG RAS_DEPLOYMENT=EngineOnly
@@ -25,19 +26,21 @@ RUN mkdir -p /ras /src/ras-runner && \
     wget "https://go.dev/dl/go${GOVERSION}.${GOBINARCH}.tar.gz" -O "/go${GOVERSION}.${GOBINARCH}.tar.gz" && \
     tar -xzf "/go${GOVERSION}.${GOBINARCH}.tar.gz" -C /
 
-RUN echo "CGO_CFLAGS=$CGO_CFLAGS" && \
-    echo "CGO_LDFLAGS=$CGO_LDFLAGS" && \
-    ls -la ${HDF5_PREFIX}/include && \
-    ls -la ${HDF5_PREFIX}/lib && \
-    test -f ${HDF5_PREFIX}/include/hdf5.h
-
 COPY ./ /src/ras-runner
 
 RUN mv /src/ras-runner/runScripts/${RAS_VERSION}/* /src/ras-runner/
 
+RUN echo "CGO_CFLAGS=$CGO_CFLAGS" && \
+    echo "CGO_LDFLAGS=$CGO_LDFLAGS" && \
+    echo "Checking HDF5 headers and libs..." && \
+    test -f "${HDF5_PREFIX}/include/hdf5.h" && \
+    ls -la "${HDF5_PREFIX}/include" && \
+    ls -la "${HDF5_PREFIX}/lib"
+
 RUN cd /src/ras-runner && \
-    go mod tidy && \
-    go build -x -o ras-runner
+    go env && \
+    go mod download && \
+    go build -v -x -work -o ras-runner 2>&1
 
 FROM rockylinux:8 AS prod
 
@@ -47,15 +50,10 @@ ENV LD_LIBRARY_PATH=${HDF5_PREFIX}/lib
 
 RUN mkdir -p /sim/model
 
-# RAS binaries
 COPY --from=builder /ras /ras
-# cc-ras-runner binary
 COPY --from=builder /src/ras-runner/ras-runner /ras/ras-runner
-# hdf binaries
 COPY --from=builder /hdf /hdf
-# geom preproc script
 COPY --from=builder /src/ras-runner/run-geom-preproc.sh /ras/
-# model run script
 COPY --from=builder /src/ras-runner/run-model.sh /ras/
 
 RUN chmod +x /ras/run-model.sh /ras/run-geom-preproc.sh /ras/ras-runner
