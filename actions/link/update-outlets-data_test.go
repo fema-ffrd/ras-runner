@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/usace-cloud-compute/cc-go-sdk"
+	"github.com/fema-ffrd/cc-go-sdk"
 )
 
 const ELKATSUTTON_HDF string = "/ElkRiver_at_Sutton.p01.tmp.hdf"

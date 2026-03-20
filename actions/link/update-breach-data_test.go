@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/usace-cloud-compute/cc-go-sdk"
+	"github.com/fema-ffrd/cc-go-sdk"
 )
 
 const ONE_BREACH_FILE string = "/workspaces/cc-ras-runner/testData/Duwamish_17110013.b01"
